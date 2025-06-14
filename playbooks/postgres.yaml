@@ -15,12 +15,10 @@
         state: present
         update_cache: yes
 
-    - name: "Install Python packages"  #Install psycopg2-binary package for PostgreSQL
-      pip:
-        name: "{{ item }}"
+    - name: Install psycopg2 using apt (instead of pip)
+      apt:
+        name: python3-psycopg2
         state: present
-      with_items:
-        - psycopg2-binary
 
   tasks:
     - name: check if postgres is initialized  #Check if PostgreSQL is initialized
