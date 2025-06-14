@@ -1,107 +1,97 @@
----
 - hosts: dbservers
   become: yes
   become_user: root
 
-  vars:
-    postgres_version: "16"
-    db:
-      name: "appdb"
-      user: "appuser"
-      password: "apppassword"
-    venv_path: /opt/myapp/venv
-
   pre_tasks:
-    - name: Update apt cache
+    - name: Install the PostgreSQL package  #Install PostgreSQL client and contrib packages
       apt:
+        name: ["postgresql-contrib", "postgresql-client"]
+        state: present
         update_cache: yes
 
-    - name: Install PostgreSQL server and client packages
+    - name: install pip3  # Install Python pip3 package manager
       apt:
-        name:
-          - "postgresql-{{ postgres_version }}"
-          - "postgresql-client-{{ postgres_version }}"
-          - "postgresql-contrib-{{ postgres_version }}"
-          - python3-venv
-          - python3-pip
+        name: ["python3-pip"]
         state: present
+        update_cache: yes
 
-    - name: Create directory for virtual environment
-      file:
-        path: "{{ venv_path }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Create Python virtual environment
-      command: python3 -m venv "{{ venv_path }}"
-      args:
-        creates: "{{ venv_path }}/bin/activate"
-
-    - name: Install psycopg2-binary in virtual environment
-      command: "{{ venv_path }}/bin/pip install psycopg2-binary"
+    - name: "Install Python packages"  #Install psycopg2-binary package for PostgreSQL
+      pip:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - psycopg2-binary
 
   tasks:
-    - name: Check if PostgreSQL data directory exists
-      stat:
-        path: "/var/lib/postgresql/{{ postgres_version }}/main"
+    - name: check if postgres is initialized  #Check if PostgreSQL is initialized
+      ansible.builtin.stat:
+        path: /var/lib/postgresql/14/main
       register: postgres_data
 
-    - name: Initialize PostgreSQL database (if not exists)
-      command: "/usr/lib/postgresql/{{ postgres_version }}/bin/initdb -D /var/lib/postgresql/{{ postgres_version }}/main"
-      become_user: postgres
+    - name: debug stat  #Debug the state of PostgreSQL data directory
+      ansible.builtin.debug:
+        msg: "postgres data debug {{postgres_data}}"
+
+    - name: "Initialize PostgreSQL"  #Initialize PostgreSQL if not already initialized
+      shell: "postgresql-setup initdb"
       when: not postgres_data.stat.exists
 
-    - name: Ensure PostgreSQL service is started and enabled
+    - name: "Start and enable services"  #Start and enable PostgreSQL service
       service:
-        name: postgresql
+        name: "{{ item }}"
         state: started
         enabled: yes
+      with_items:
+        - postgresql
 
-    - name: Create the application database
+    - name: "Create app database"  #Create application database
       postgresql_db:
-        name: "{{ db.name }}"
         state: present
+        name: "{{ db.name }}"
+      become: yes
       become_user: postgres
 
-    - name: Create the database user with password
+    - name: "Create db user"  #Create database user with specified credentials
       postgresql_user:
+        state: present
         name: "{{ db.user }}"
         password: "{{ db.password }}"
-        state: present
+      become: yes
       become_user: postgres
 
-    - name: Grant all privileges on the database to the user
+    - name: "Grant db user access to app db"  #Grant all privileges on the database to the user
       postgresql_privs:
         type: database
         database: "{{ db.name }}"
         roles: "{{ db.user }}"
+        grant_option: no
         privs: all
+      become: yes
       become_user: postgres
 
-    - name: Configure pg_hba.conf for md5 authentication for the db user
+    - name: "Allow md5 connection for the db user"  #Configure pg_hba.conf for md5 authentication
       postgresql_pg_hba:
-        dest: "/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf"
+        dest: "/etc/postgresql/14/main/pg_hba.conf"
         contype: host
         databases: all
-        users: "{{ db.user }}"
-        address: 0.0.0.0/0
+        source: 0.0.0.0/0
         method: md5
+        users: "{{ db.user }}"
         create: true
+      become: yes
       become_user: postgres
-      notify: restart postgresql
+      notify: restart postgres
 
-    - name: Allow PostgreSQL to listen on all interfaces
+    - name: "Allow connections from all"  #Update postgresql.conf to listen on all addresses
       lineinfile:
-        path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
-        regexp: '^#?listen_addresses\s*='
+        path: "/etc/postgresql/14/main/postgresql.conf"
         line: "listen_addresses = '*'"
+        regexp: "^#listen_addresses = 'localhost'"
+        state: present
+      become: yes
       become_user: postgres
-      notify: restart postgresql
+      notify: restart postgres
 
   handlers:
-    - name: restart postgresql
-      service:
-        name: postgresql
-        state: restarted
+    - name: restart postgres  #Restart PostgreSQL service
+      service: name=postgresql state=restarted
