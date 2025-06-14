@@ -1,54 +1,75 @@
+---
 - hosts: dbservers
   become: yes
   become_user: root
 
   vars:
+    postgres_version: "16"
     db:
       name: myappdb
       user: myappuser
       password: mysecretpassword
+    venv_path: /opt/myapp/venv
 
   pre_tasks:
-    - name: Update APT package cache
+    - name: Update apt cache
       apt:
         update_cache: yes
 
-    - name: Install PostgreSQL server, client, and contrib packages
+    - name: Install PostgreSQL server and client packages
       apt:
         name:
-          - postgresql
-          - postgresql-client
-          - postgresql-contrib
+          - "postgresql-{{ postgres_version }}"
+          - "postgresql-client-{{ postgres_version }}"
+          - "postgresql-contrib-{{ postgres_version }}"
+          - python3-venv
+          - python3-pip
         state: present
 
-    - name: Install psycopg2 for Python via apt (Debian-safe)
-      apt:
-        name: python3-psycopg2
-        state: present
+    - name: Create directory for virtual environment
+      file:
+        path: "{{ venv_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-    - name: Install pip3 (in case needed later)
-      apt:
-        name: python3-pip
-        state: present
+    - name: Create Python virtual environment
+      command: python3 -m venv "{{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Install psycopg2-binary in virtual environment
+      command: "{{ venv_path }}/bin/pip install psycopg2-binary"
 
   tasks:
-    - name: Ensure PostgreSQL service is running and enabled
+    - name: Check if PostgreSQL data directory exists
+      stat:
+        path: "/var/lib/postgresql/{{ postgres_version }}/main"
+      register: postgres_data
+
+    - name: Initialize PostgreSQL database (if not exists)
+      command: "/usr/lib/postgresql/{{ postgres_version }}/bin/initdb -D /var/lib/postgresql/{{ postgres_version }}/main"
+      become_user: postgres
+      when: not postgres_data.stat.exists
+
+    - name: Ensure PostgreSQL service is started and enabled
       service:
         name: postgresql
         state: started
         enabled: yes
 
-    - name: Create application database
+    - name: Create the application database
       postgresql_db:
-        state: present
         name: "{{ db.name }}"
+        state: present
       become_user: postgres
 
-    - name: Create database user with password
+    - name: Create the database user with password
       postgresql_user:
-        state: present
         name: "{{ db.user }}"
         password: "{{ db.password }}"
+        state: present
       become_user: postgres
 
     - name: Grant all privileges on the database to the user
@@ -56,13 +77,12 @@
         type: database
         database: "{{ db.name }}"
         roles: "{{ db.user }}"
-        grant_option: no
         privs: all
       become_user: postgres
 
-    - name: Allow md5 connection for the db user in pg_hba.conf
+    - name: Configure pg_hba.conf for md5 authentication for the db user
       postgresql_pg_hba:
-        dest: "/etc/postgresql/14/main/pg_hba.conf"
+        dest: "/etc/postgresql/{{ postgres_version }}/main/pg_hba.conf"
         contype: host
         databases: all
         users: "{{ db.user }}"
@@ -70,18 +90,18 @@
         method: md5
         create: true
       become_user: postgres
-      notify: restart postgres
+      notify: restart postgresql
 
-    - name: Allow PostgreSQL to listen on all IP addresses
+    - name: Allow PostgreSQL to listen on all interfaces
       lineinfile:
-        path: "/etc/postgresql/14/main/postgresql.conf"
-        regexp: "^#?listen_addresses\\s*=.*"
+        path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
+        regexp: "^#?listen_addresses\s*="
         line: "listen_addresses = '*'"
       become_user: postgres
-      notify: restart postgres
+      notify: restart postgresql
 
   handlers:
-    - name: restart postgres
+    - name: restart postgresql
       service:
         name: postgresql
         state: restarted
