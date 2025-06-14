@@ -6,9 +6,9 @@
   vars:
     postgres_version: "16"
     db:
-      name: myappdb
-      user: myappuser
-      password: mysecretpassword
+      name: "appdb"
+      user: "appuser"
+      password: "apppassword"
     venv_path: /opt/myapp/venv
 
   pre_tasks:
