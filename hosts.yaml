@@ -1,0 +1,24 @@
+---
+control:
+  hosts:
+    local-control:
+      ansible_connection: local
+    control-vm:
+      ansible_host: control
+
+dbservers:
+    hosts:
+      dbserver-vm:
+          ansible_host: dbserver
+      
+
+appservers:
+    hosts:
+      appserver-vm:
+        ansible_host: springboot
+      frontend-vm:
+          ansible_host: frontserver
+      docker-vm:
+          ansible_host: docker
+      k8s-vm:
+          ansible_host: k8s
