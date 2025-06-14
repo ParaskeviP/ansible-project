@@ -95,7 +95,7 @@
     - name: Allow PostgreSQL to listen on all interfaces
       lineinfile:
         path: "/etc/postgresql/{{ postgres_version }}/main/postgresql.conf"
-        regexp: "^#?listen_addresses\s*="
+        regexp: '^#?listen_addresses\s*='
         line: "listen_addresses = '*'"
       become_user: postgres
       notify: restart postgresql
