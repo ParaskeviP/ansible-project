@@ -19,6 +19,7 @@
       pip:
         name: "{{ item }}"
         state: present
+        extra_args: "--break-system-packages"
       with_items:
         - psycopg2-binary
 
