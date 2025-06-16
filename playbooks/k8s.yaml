@@ -68,8 +68,7 @@
     - name: Clone the realEstate_backend repository
       git:
         repo: https://github.com/ParaskeviP/realEstate_backend.git
-        dest: "/home/{{ ansible_user_id }}/realEstate_backend
-"
+        dest: "/home/{{ ansible_user_id }}/realEstate_backend"
         version: main
       become: yes
 
