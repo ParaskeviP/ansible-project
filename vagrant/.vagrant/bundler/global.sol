@@ -1,1 +1,1 @@
-{"dependencies":[["vagrant-hostmanager",["= 1.8.10"]]],"checksum":"a69e7cac58125164d6128b32546d439a3fe526594a6039cbbeacba8be4ce8f44","vagrant_version":"2.4.5"}
+{"dependencies":[["vagrant-hostmanager",["= 1.8.10"]],["racc",["~> 1.4"]],["nokogiri",[">= 0"]],["vagrant-parallels",["= 2.4.7"]]],"checksum":"78f9b7b229da8ceddfd34854acf789a218334902248f740e5de8f44b480004cd","vagrant_version":"2.4.7"}

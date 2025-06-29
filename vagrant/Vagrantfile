@@ -2,43 +2,69 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.hostmanager.enabled = true
-  config.vm.box = "ubuntu/jammy64"
+  # Use an ARM64-compatible Ubuntu 22.04 box
+  config.vm.box = "bento/ubuntu-22.04-arm64"
 
+  # Optional: if you're using vagrant-hostmanager and it's installed
+  # config.hostmanager.enabled = true
+
+  # Define the control node
   config.vm.define "control", primary: true do |h|
     h.vm.hostname = "control"
     h.vm.network "private_network", ip: "192.168.56.10"
     h.vm.provision "shell", path: "scripts/key.sh"
+
+    h.vm.provider "parallels" do |v|
+      v.memory = 2048
+      v.cpus = 2
+    end
   end
 
-   config.vm.define "springboot" do |web|
-    web.vm.box = "ubuntu/jammy64"
+  # Springboot server
+  config.vm.define "springboot" do |web|
     web.vm.hostname = "springboot"
     web.vm.network "private_network", ip: "192.168.56.101"
     web.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+
+    web.vm.provider "parallels" do |v|
+      v.memory = 2048
+      v.cpus = 2
+    end
   end
 
+  # Database server
+  config.vm.define "dbserver" do |db|
+    db.vm.hostname = "dbserver"
+    db.vm.network "private_network", ip: "192.168.56.102"
+    db.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
 
-    config.vm.define "dbserver" do |db|
-      db.vm.box = "ubuntu/jammy64"
-      db.vm.hostname = "dbserver"
-      db.vm.network "private_network", ip: "192.168.56.102"
-      db.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+    db.vm.provider "parallels" do |v|
+      v.memory = 2048
+      v.cpus = 2
     end
-    
-
-    config.vm.define "frontserver" do |h|
-      h.vm.hostname = "frontserver"
-      h.vm.network "private_network", ip: "192.168.56.103"
-      h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
-    end
-
-
-    config.vm.define "docker" do |h|
-      h.vm.hostname = "docker"
-      h.vm.network "private_network", ip: "192.168.56.104"
-      h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
-    end
-
-
   end
+
+  # Frontend server
+  config.vm.define "frontserver" do |h|
+    h.vm.hostname = "frontserver"
+    h.vm.network "private_network", ip: "192.168.56.103"
+    h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+
+    h.vm.provider "parallels" do |v|
+      v.memory = 2048
+      v.cpus = 2
+    end
+  end
+
+  # Docker host
+  config.vm.define "docker" do |h|
+    h.vm.hostname = "docker"
+    h.vm.network "private_network", ip: "192.168.56.104"
+    h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+
+    h.vm.provider "parallels" do |v|
+      v.memory = 2048
+      v.cpus = 2
+    end
+  end
+end
